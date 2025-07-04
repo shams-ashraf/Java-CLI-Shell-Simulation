@@ -1,3 +1,4 @@
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
@@ -5,7 +6,6 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.io.BufferedWriter;
 
 public class TerminalParser {
     private Path currentDirectory;
@@ -20,15 +20,15 @@ public class TerminalParser {
             return;
         }
         String[] pipeCommands = input.split("\\|");
-        List<String> results = new ArrayList<>();
-
+        StringBuilder previousOutput = new StringBuilder();
+    
         for (String command : pipeCommands) {
             command = command.trim();
             String[] tokens = command.split("\\s+");
-
+    
             String outputFile = null;
             boolean append = false;
-
+    
             for (int i = 0; i < tokens.length; i++) {
                 if (tokens[i].equals(">")) {
                     outputFile = tokens[i + 1];
@@ -39,16 +39,24 @@ public class TerminalParser {
                     break;
                 }
             }
-            StringBuilder output = new StringBuilder();
-            executeCommand(tokens, output);
-            if (outputFile != null) {
-                writeOutputToFile(output.toString(), outputFile, append);
+    
+            StringBuilder currentOutput = new StringBuilder();
+            
+            if ("cat".equals(tokens[0]) && previousOutput.length() > 0) {
+                currentOutput.append(previousOutput.toString());
             } else {
-                results.add(output.toString());
+                executeCommand(tokens, currentOutput);
+            }
+    
+            if (outputFile != null) {
+                writeOutputToFile(currentOutput.toString(), outputFile, append);
+            } else {
+                previousOutput = new StringBuilder(currentOutput);
             }
         }
-        if (!results.isEmpty()) {
-            System.out.print(results.get(results.size() - 1));
+        
+        if (previousOutput.length() > 0) {
+            System.out.print(previousOutput.toString());
         }
     }
 
@@ -236,14 +244,17 @@ public class TerminalParser {
     }
 
     public void cat(String[] tokens, StringBuilder output) {
+        if (tokens.length == 1) {
+            System.out.print(output.toString());
+            return;
+        }
         if (tokens.length < 2) {
             output.append("Usage: cat <file> or cat > <file>").append(System.lineSeparator());
             return;
         }
         if (tokens.length == 3 && tokens[1].equals(">")) {
             writeFile(tokens[2], output);
-        }
-        else {
+        } else {
             readFile(tokens[1], output);
         }
     }
